@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<itop_design xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.0">
+  <classes>
+    <class id="PhysicalDevice" _delta="if_exists">
+      <fields>
+        <field id="asset_number" xsi:type="AttributeString" _delta="redefine">
+          <sql>asset_number</sql>
+          <is_null_allowed>false</is_null_allowed>
+	  <validation_pattern>^\d+$</validation_pattern>
+	  <tracking_level>all</tracking_level>
+        </field>
+      </fields>
+      <properties>
+        <uniqueness_rules>
+          <rule id="unique_asset_number" _delta="define">
+            <attributes>
+              <attribute id="asset_number"/>
+            </attributes>
+            <disabled>false</disabled>
+            <is_blocking>true</is_blocking>
+          </rule>
+        </uniqueness_rules>
+      </properties>
+      <methods>
+        <method id="DBInsertNoReload" _delta="define">
+          <static>false</static>
+          <access>public</access>
+          <type>Overload-DBObject</type>
+          <code><![CDATA[
+            public function DBInsertNoReload()
+            {
+              $oMutex = new iTopMutex('physicaldevice_insert');
+              $oMutex->Lock();
+              $iNextId = MetaModel::GetNextKey(get_class($this));
+              $sRef = $this->MakePhysicalDeviceRef($iNextId);
+              $this->Set('asset_number', $sRef);
+              $iKey = parent::DBInsertNoReload();
+              $oMutex->Unlock();
+              return $iKey;
+            }
+          ]]></code>
+        </method>
+        <method id="MakePhysicalDeviceRef" _delta="define">
+          <static>false</static>
+          <access>protected</access>
+          <type>Overload-DBObject</type>
+          <code><![CDATA[
+            protected function MakePhysicalDeviceRef($iNextId)
+            {
+              $sFormat = '2000%08d';
+              $digits = sprintf($sFormat, $iNextId);
+	      $digits =(string)$digits;
+	      if (strlen($digits) == 12) {
+		// https://edmondscommerce.github.io/php/barcode/ean13-barcode-check-digit-with-php.html	
+	        $even_sum = $digits{1} + $digits{3} + $digits{5} + $digits{7} + $digits{9} + $digits{11};
+                $even_sum_three = $even_sum * 3;
+                $odd_sum = $digits{0} + $digits{2} + $digits{4} + $digits{6} + $digits{8} + $digits{10};
+                $total_sum = $even_sum_three + $odd_sum;
+                $next_ten = (ceil($total_sum/10))*10;
+                $check_digit = $next_ten - $total_sum;
+                return $digits . $check_digit;
+	      } else {
+	        throw new Exception('Can\'t generate EAN-13 barcode');
+	      }
+            }
+            ]]></code>
+        </method>
+        <method id="GetAttributeFlags" _delta="define">
+          <static>false</static>
+          <access>public</access>
+          <type>Overload-DBObject</type>
+          <code><![CDATA[
+            public function GetAttributeFlags($sAttCode, &$aReasons = array(), $sTargetState = '')
+            {
+              if (($sAttCode == 'asset_number'))
+                return(OPT_ATT_READONLY | parent::GetAttributeFlags($sAttCode, $aReasons, $sTargetState));
+              return parent::GetAttributeFlags($sAttCode, $aReasons, $sTargetState);
+            }
+            ]]></code>
+        </method>
+        <method id="GetInitialStateAttributeFlags" _delta="define">
+          <static>false</static>
+          <access>public</access>
+          <type>Overload-DBObject</type>
+          <code><![CDATA[
+            public function GetInitialStateAttributeFlags($sAttCode, &$aReasons = array())
+            {
+              if (($sAttCode == 'asset_number'))
+                return(OPT_ATT_HIDDEN | parent::GetInitialStateAttributeFlags($sAttCode, $aReasons));
+              return parent::GetInitialStateAttributeFlags($sAttCode, $aReasons);
+            }
+            ]]></code>
+        </method>
+      </methods>
+    </class>
+  </classes>
+  <dictionaries>
+    <dictionary id="EN US" _delta="must_exist">
+      <entries>
+        <entry id="Class:PhysicalDevice/UniquenessRule:unique_asset_number" _delta="define">
+                <![CDATA[Asset number '$this->asset_number$' already exists]]>
+        </entry>
+      </entries>
+    </dictionary>
+    <dictionary id="RU RU" _delta="must_exist">
+      <entries>
+        <entry id="Class:PhysicalDevice/UniquenessRule:unique_asset_number" _delta="define">
+                <![CDATA[Номер актива '$this->asset_number$' уже существует]]>
+        </entry>
+      </entries>
+    </dictionary>
+  </dictionaries>
+  <user_rights>
+    <groups>
+    </groups>
+    <profiles>
+    </profiles>
+  </user_rights>
+</itop_design>
